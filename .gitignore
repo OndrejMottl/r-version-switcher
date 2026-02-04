@@ -1,0 +1,29 @@
+# Ignore compiled output
+out/
+dist/
+*.vsix
+
+# Node modules
+node_modules/
+
+# Test results
+.vscode-test/
+coverage/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Build files
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local

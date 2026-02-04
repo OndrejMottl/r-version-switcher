@@ -1,0 +1,70 @@
+{
+  "name": "r-version-switcher",
+  "displayName": "R Version Switcher",
+  "description": "Easily switch between installed R versions managed by rig (R Installation Manager)",
+  "version": "1.0.0",
+  "publisher": "your-publisher-name",
+  "author": {
+    "name": "Your Name"
+  },
+  "license": "MIT",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "R",
+    "rig",
+    "version",
+    "switcher",
+    "R language",
+    "R version manager",
+    "multi-platform"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "r.switchVersion",
+        "title": "R: Switch Version",
+        "category": "R"
+      },
+      {
+        "command": "r.showCurrentVersion",
+        "title": "R: Show Current Version",
+        "category": "R"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/r-version-switcher"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/r-version-switcher/issues"
+  },
+  "homepage": "https://github.com/yourusername/r-version-switcher#readme",
+  "extensionDependencies": [
+    "REditorSupport.r"
+  ],
+  "scripts": {
+    "test": "node ./test/runTest.js",
+    "lint": "echo 'No linter configured yet'",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^16.x",
+    "mocha": "^10.0.0",
+    "glob": "^8.0.0",
+    "@vscode/test-electron": "^2.1.0"
+  }
+}
