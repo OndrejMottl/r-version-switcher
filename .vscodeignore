@@ -1,3 +1,10 @@
 node_modules
 *.vsix
 .vscode-test/
+.vscode/
+test/
+.gitignore
+CONTRIBUTING.md
+PRE_RELEASE_CHECKLIST.md
+PRODUCTION_READY.md
+QUICK_REFERENCE.md

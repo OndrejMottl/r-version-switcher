@@ -1,10 +1,12 @@
 const vscode = require('vscode');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
 
-const execAsync = promisify(exec);
+// Run rig directly rather than through a shell: Windows PowerShell 5.1 is
+// broken or blocked on some machines, and no shell features are needed.
+const execFileAsync = promisify(execFile);
 const fsPromises = fs.promises;
 
 // Platform detection
@@ -20,9 +22,7 @@ const EXEC_TIMEOUT = 10000; // 10 seconds
  */
 async function checkRigInstalled() {
     try {
-        const shell = IS_WINDOWS ? 'powershell.exe' : undefined;
-        const testCommand = IS_WINDOWS ? 'Get-Command rig -ErrorAction SilentlyContinue' : 'which rig';
-        await execAsync(testCommand, { shell, timeout: EXEC_TIMEOUT });
+        await execFileAsync('rig', ['--version'], { timeout: EXEC_TIMEOUT });
         return true;
     } catch (error) {
         return false;
@@ -131,9 +131,7 @@ function activate(context) {
             
             let stdout;
             try {
-                const shell = IS_WINDOWS ? 'powershell.exe' : undefined;
-                const result = await execAsync('rig list', { 
-                    shell, 
+                const result = await execFileAsync('rig', ['list'], {
                     timeout: EXEC_TIMEOUT,
                     maxBuffer: 1024 * 1024 // 1MB buffer
                 });
@@ -144,7 +142,8 @@ function activate(context) {
                     return;
                 }
             } catch (error) {
-                if (error.code === 'ETIMEDOUT') {
+                // A timeout kills the process; it does not set error.code.
+                if (error.killed) {
                     vscode.window.showErrorMessage('rig command timed out. Please try again.');
                 } else {
                     vscode.window.showErrorMessage(`Failed to execute 'rig list': ${error.message}. Make sure rig is installed and in your PATH.`);

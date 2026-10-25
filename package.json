@@ -3,12 +3,11 @@
   "displayName": "R Version Switcher",
   "description": "Easily switch between installed R versions managed by rig (R Installation Manager)",
   "version": "1.0.0",
-  "publisher": "your-publisher-name",
+  "publisher": "OndrejMottl",
   "author": {
     "name": "Your Name"
   },
   "license": "MIT",
-  "icon": "icon.png",
   "engines": {
     "vscode": "^1.60.0"
   },
