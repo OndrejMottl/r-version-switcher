@@ -1,15 +1,15 @@
 {
   "name": "r-version-switcher",
   "displayName": "R Version Switcher",
-  "description": "Easily switch between installed R versions managed by rig (R Installation Manager)",
-  "version": "1.0.0",
+  "description": "⚠️ Purely vibe-coded (AI-written), use at your own risk. Switch, install and remove R versions managed by rig (R Installation Manager)",
+  "version": "1.1.0",
   "publisher": "OndrejMottl",
   "author": {
     "name": "Your Name"
   },
   "license": "MIT",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.64.0"
   },
   "categories": [
     "Programming Languages",
@@ -24,19 +24,83 @@
     "R version manager",
     "multi-platform"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
         "command": "r.switchVersion",
-        "title": "R: Switch Version",
+        "title": "Switch Version",
         "category": "R"
       },
       {
         "command": "r.showCurrentVersion",
-        "title": "R: Show Current Version",
+        "title": "Show Current Version",
         "category": "R"
+      },
+      {
+        "command": "r.addVersion",
+        "title": "Add Version",
+        "category": "R"
+      },
+      {
+        "command": "r.removeVersion",
+        "title": "Remove Version",
+        "category": "R"
+      },
+      {
+        "command": "r.setDefaultVersion",
+        "title": "Set System Default Version",
+        "category": "R"
+      },
+      {
+        "command": "r.installRtools",
+        "title": "Install Rtools",
+        "category": "R"
+      },
+      {
+        "command": "r.useRenvVersion",
+        "title": "Use R Version from renv.lock",
+        "category": "R"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "r.installRtools",
+          "when": "isWindows"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "R Version Switcher",
+      "properties": {
+        "rVersionSwitcher.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the workspace R version in the status bar in R projects (with renv.lock, an R file open, or a workspace R path)."
+        },
+        "rVersionSwitcher.checkRenvLock": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a workspace opens, warn if its R version differs from the one in renv.lock."
+        }
+      }
+    },
+    "taskDefinitions": [
+      {
+        "type": "rig",
+        "required": [
+          "args"
+        ],
+        "properties": {
+          "args": {
+            "type": "array",
+            "description": "Arguments passed to rig."
+          }
+        }
       }
     ]
   },
@@ -52,7 +116,8 @@
     "REditorSupport.r"
   ],
   "scripts": {
-    "test": "node ./test/runTest.js",
+    "test": "mocha --ui tdd test/unit",
+    "test:integration": "node ./test/runTest.js",
     "lint": "echo 'No linter configured yet'",
     "package": "vsce package",
     "publish": "vsce publish"

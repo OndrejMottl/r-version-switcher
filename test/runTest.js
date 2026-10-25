@@ -1,42 +1,48 @@
+// Run the integration tests in a downloaded VS Code instance
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const cp = require('child_process');
 
-function run() {
-    // Create the mocha test
-    const Mocha = require('mocha');
-    const glob = require('glob');
+const {
+    downloadAndUnzipVSCode,
+    resolveCliArgsFromVSCodeExecutablePath,
+    runTests
+} = require('@vscode/test-electron');
 
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true,
-        timeout: 10000
-    });
+async function main() {
+    // Set when started from inside VS Code (e.g. an extension's terminal);
+    // it would make the test instance start as plain Node.
+    delete process.env.ELECTRON_RUN_AS_NODE;
 
-    const testsRoot = path.resolve(__dirname, '.');
+    const extensionDevelopmentPath = path.resolve(__dirname, '..');
+    const extensionTestsPath = path.resolve(__dirname, 'integration', 'index.js');
+    const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'rvs-workspace-'));
 
-    return new Promise((resolve, reject) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return reject(err);
-            }
+    try {
+        const vscodeExecutablePath = await downloadAndUnzipVSCode('stable');
 
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
-
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        reject(new Error(`${failures} tests failed.`));
-                    } else {
-                        resolve();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                reject(err);
-            }
+        // The extension declares vscode-R as a dependency; without it VS Code
+        // refuses to activate the extension under test.
+        const [cli, ...args] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath);
+        cp.spawnSync(cli, [...args, '--install-extension', 'REditorSupport.r'], {
+            encoding: 'utf-8',
+            stdio: 'inherit',
+            shell: process.platform === 'win32'
         });
-    });
+
+        await runTests({
+            vscodeExecutablePath,
+            extensionDevelopmentPath,
+            extensionTestsPath,
+            launchArgs: [workspacePath]
+        });
+    } catch (error) {
+        console.error('Failed to run tests:', error);
+        process.exitCode = 1;
+    } finally {
+        fs.rmSync(workspacePath, { recursive: true, force: true });
+    }
 }
 
-module.exports = { run };
+main();
