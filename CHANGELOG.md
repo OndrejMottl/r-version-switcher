@@ -5,6 +5,30 @@ All notable changes to the "R Version Switcher" extension will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-25
+
+### Added
+- `R: Add Version` installs an R version with `rig add`: the latest release, `next`, `devel`, the newest patch of each minor version, or any version you type (e.g. `4.4.1`, `4.4`, `oldrel/2`). Afterwards it offers to use the new version in the workspace and to install the Rtools it needs.
+- `R: Remove Version` removes one or more R versions with `rig rm`, with a confirmation that warns when the workspace or the system default uses them.
+- `R: Set System Default Version` sets the R version used outside VS Code (`rig default`).
+- `R: Install Rtools` (Windows) works out which Rtools each installed R version needs and installs the missing ones.
+- `R: Use R Version from renv.lock` switches the workspace to the R version in `renv.lock`, or offers to install it (or to use the newest installed patch of the same minor version).
+- On startup and when `renv.lock` changes, a warning appears if the workspace R version differs from `renv.lock` (setting `rVersionSwitcher.checkRenvLock`).
+- Status bar item showing the workspace R version, with a warning when it differs from `renv.lock` (setting `rVersionSwitcher.showStatusBar`).
+- rig commands that change installations run as VS Code tasks, so their output and any administrator (UAC) prompt are visible.
+- Extension icon.
+
+### Changed
+- rig is run directly instead of through PowerShell, which fails on some Windows machines.
+- R executables are taken from `rig list --json` instead of guessed paths, so rig user-mode installs (rig 0.10+) are found.
+- The JSON printed by rig 0.7 on Windows (unescaped backslashes, trailing commas) is repaired before parsing.
+- Requires VS Code 1.64 or higher.
+- Tests: `npm test` runs unit tests of the rig, renv and version helpers in Node; `npm run test:integration` runs the extension in a downloaded VS Code.
+
+### Fixed
+- The timeout message for rig commands is shown (a timeout sets `error.killed`, not `error.code`).
+- Command titles no longer show the category twice ("R: R: Switch Version").
+
 ## [1.0.0] - 2026-02-04
 
 ### Added
@@ -61,17 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 - 🔮 Automatic R terminal restart after version switch
-- 🔮 Status bar indicator showing current R version
+- 🔮 Hint when a newer patch release of the workspace R version is available
 - 🔮 Quick switch between recently used R versions
 - 🔮 Support for custom R installation paths
-- 🔮 Integration with R project files (`.Rproj`, `renv.lock`)
-- 🔮 R version suggestions based on project requirements
-- 🔮 Option to set default/global R version
 - 🔮 R version comparison tool
 - 🔮 Automatic R version detection from Docker containers
 
 ### Under Consideration
-- Extension icon design
 - Telemetry for anonymous usage analytics
 - Marketplace publication
 - CI/CD pipeline setup
@@ -81,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.1.0** (2026-10-25) - Add, remove, default and Rtools commands; renv.lock support; status bar
 - **1.0.0** (2026-02-04) - Initial release
 
 ---

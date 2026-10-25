@@ -1,8 +1,10 @@
 # R Version Switcher
 
+> ⚠️ **Warning: this extension is purely vibe-coded.** It was written by an AI coding assistant, not by hand. It can install and remove R versions on your machine, so check what a command will do before you confirm it, and use it at your own risk.
+
 A robust VS Code extension to easily switch between R versions managed by [rig](https://github.com/r-lib/rig) (R Installation Manager). Works seamlessly across Windows, macOS, and Linux.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/r-version-switcher)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/yourusername/r-version-switcher)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Features
@@ -13,15 +15,46 @@ A robust VS Code extension to easily switch between R versions managed by [rig](
 ✅ **Safe Operations** - Automatic backup and rollback on failure  
 ✅ **R Extension Integration** - Seamlessly updates R extension settings  
 ✅ **Path Validation** - Verifies R installations before switching  
-✅ **User-Friendly** - Interactive quick pick menu with current version indicator
+✅ **User-Friendly** - Interactive quick pick menu with current version indicator  
+✅ **Manage Installations** - Add and remove R versions, set the system default, install Rtools  
+✅ **renv Aware** - Matches the workspace to the R version in `renv.lock`  
+✅ **Status Bar** - Shows the workspace R version at a glance
 
 ## Commands
 
 ### R: Switch Version
-Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS), type "R: Switch Version", and select your desired R version from the menu.
+Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS), type "R: Switch Version", and select your desired R version from the menu. The menu marks the version this workspace uses, the system default and the version in `renv.lock`.
 
 ### R: Show Current Version
-Display the currently configured R version for the workspace, including path validation.
+Display the currently configured R version for the workspace, including path validation and the `renv.lock` version.
+
+### R: Add Version
+Install a new R version with `rig add`. Pick the latest release, `next` or `devel`, the newest patch of an older minor version, or choose "Other version..." and type any version rig understands (`4.4.1`, `4.4`, `oldrel/2`). When the install finishes you can use the new version in the workspace and, on Windows, install the Rtools it needs.
+
+### R: Remove Version
+Remove one or more installed R versions with `rig rm`. Your package libraries are kept. You are warned if the workspace or the system default uses a version you remove.
+
+### R: Set System Default Version
+Set the R version that `R` and `Rscript` start outside VS Code (`rig default`). Workspace settings are not changed.
+
+### R: Install Rtools (Windows)
+Lists the Rtools versions your installed R versions need but don't have, and installs the ones you select.
+
+### R: Use R Version from renv.lock
+Switch the workspace to the R version recorded in `renv.lock`. If it is not installed, you can install it or use the newest installed patch of the same minor version.
+
+### Installs run as tasks
+Add, remove, default and Rtools commands run rig in a VS Code task, so you can follow the output. rig asks for administrator rights (UAC) itself when it needs them; with rig 0.10+ in user mode no administrator rights are needed.
+
+### Status bar
+In R projects (a `renv.lock`, an open R file or a workspace R path) the status bar shows the workspace R version. It turns yellow when the version differs from `renv.lock`. Click it to switch versions.
+
+## Extension Settings
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `rVersionSwitcher.showStatusBar` | `true` | Show the workspace R version in the status bar |
+| `rVersionSwitcher.checkRenvLock` | `true` | Warn when the workspace R version differs from `renv.lock` |
 
 ## Requirements
 
@@ -30,21 +63,13 @@ Display the currently configured R version for the workspace, including path val
 - [R Extension for VS Code](https://marketplace.visualstudio.com/items?itemName=REditorSupport.r) (recommended)
 - At least one R version installed via rig
 
-### Platform-Specific
+### R installation paths
 
-#### Windows
-- PowerShell (comes with Windows)
-- R installed in standard location: `C:\Program Files\R\R-{version}\bin\R.exe`
+The extension uses the R executable paths that `rig list --json` reports, so both admin installs and rig user-mode installs (rig 0.10+) are found. Only if rig doesn't report a path does it fall back to the standard locations:
 
-#### macOS
-- Supported paths:
-  - `/Library/Frameworks/R.framework/Versions/{version}/Resources/bin/R`
-  - `/opt/R/{version}/bin/R`
-
-#### Linux
-- Supported paths:
-  - `/opt/R/{version}/bin/R`
-  - `/usr/local/lib/R/{version}/bin/R`
+- Windows: `C:\Program Files\R\R-{version}\bin\R.exe`
+- macOS: `/Library/Frameworks/R.framework/Versions/{version}/Resources/bin/R`, `/opt/R/{version}/bin/R`
+- Linux: `/opt/R/{version}/bin/R`, `/usr/local/lib/R/{version}/bin/R`
 
 ## Installation
 
@@ -146,13 +171,21 @@ rig list
 **Possible causes:**
 - rig not in PATH
 - Permission issues
-- Shell access problems
 
 **Solutions:**
 1. Run `rig list` manually in terminal to verify it works
 2. Check PATH environment variable
-3. On Windows: Ensure PowerShell execution policy allows scripts
-4. Restart VS Code after PATH changes
+3. Restart VS Code after PATH changes
+
+The extension runs rig directly, without a shell, so PowerShell problems don't affect it.
+
+### Add, remove or Rtools fails
+
+The task terminal shows rig's own error. Common causes:
+
+- The administrator (UAC) prompt was declined.
+- Rtools: rig fails when the same Rtools version is already installed.
+- No internet connection (`rig add` downloads the installer).
 
 ### "R extension is not installed"
 
@@ -187,7 +220,6 @@ If you see "✗ Invalid path" in Show Current Version:
 ## Known Limitations
 
 - Only detects R versions installed via rig
-- Requires standard installation paths (see Requirements)
 - Portable R installations not supported
 - Changes require R terminal restart (not automatic)
 
@@ -213,15 +245,14 @@ npm run package
 ### Running Tests
 
 ```bash
+# Unit tests (plain Node, fast)
 npm test
+
+# Integration tests (downloads VS Code and vscode-R into .vscode-test/)
+npm run test:integration
 ```
 
-Tests cover:
-- Platform detection
-- Rig output parsing
-- Path validation
-- Settings management
-- Error scenarios
+Unit tests cover the rig output parsers (including the malformed JSON from rig 0.7 on Windows), version matching, Rtools requirements and `renv.lock` reading. They also query the real rig when it is installed. Integration tests check command registration, running rig as a task and switching to the `renv.lock` version in a real VS Code instance.
 
 ### Contributing
 
@@ -239,6 +270,15 @@ Contributions welcome! Please:
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## Changelog
+
+### 1.1.0 (2026-10-25)
+
+- ✨ Add Version, Remove Version, Set System Default Version and Install Rtools commands
+- ✨ Use R Version from renv.lock command, and a warning when the workspace differs from `renv.lock`
+- ✨ Status bar item with the workspace R version
+- 🔧 rig runs without PowerShell; R paths come from `rig list --json`
+
+See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ### 1.0.0 (2026-02-04)
 
