@@ -8,6 +8,15 @@ const {
     extractVersionFromPath,
     findBestMatch
 } = require('./lib/versions');
+const {
+    EXECUTABLE_SETTING,
+    CONSOLE_ARGS_SETTING,
+    LEGACY_CONSOLE_ARGS_SETTING,
+    legacyRPathSetting,
+    executableSettingFor,
+    settingMatchesEntry,
+    withRBinary
+} = require('./lib/settings');
 
 // Platform detection
 const IS_WINDOWS = process.platform === 'win32';
@@ -53,13 +62,15 @@ async function checkRExists(rPath) {
 }
 
 /**
- * Get platform-specific R path setting name
+ * Resolve a configured R executable to a file: a bare name such as
+ * "R-4.5.1" is looked up on PATH, as vscode-R does
+ * @param {string} rPath
+ * @returns {Promise<string|null>}
  */
-function getRPathSettingName() {
-    if (IS_WINDOWS) return 'rpath.windows';
-    if (IS_MACOS) return 'rpath.mac';
-    if (IS_LINUX) return 'rpath.linux';
-    return 'rpath.windows'; // fallback
+async function resolveConfiguredR(rPath) {
+    if (!rPath) return null;
+    if (!/[\\/]/.test(rPath)) return rig.findOnPath(rPath);
+    return await checkRExists(rPath) ? rPath : null;
 }
 
 function getWorkspaceFolder() {
@@ -68,18 +79,32 @@ function getWorkspaceFolder() {
 }
 
 /**
- * @returns {{rPath: string|undefined, version: string|null, isWorkspace: boolean}}
+ * The R executable configured for vscode-R: `r.executablePath`, or the
+ * deprecated `r.rpath.<platform>` that older versions of this extension
+ * wrote.
+ * @returns {{rPath: string|undefined, setting: string|undefined, version: string|null, isWorkspace: boolean}}
  */
 function getConfiguredR() {
     const config = vscode.workspace.getConfiguration('r');
-    const setting = getRPathSettingName();
-    const inspected = config.inspect(setting) || {};
-    const rPath = config.get(setting) || undefined;
-    return {
-        rPath,
-        version: extractVersionFromPath(rPath),
-        isWorkspace: Boolean(inspected.workspaceValue || inspected.workspaceFolderValue)
-    };
+    for (const setting of [EXECUTABLE_SETTING, legacyRPathSetting(process.platform)]) {
+        const rPath = config.get(setting) || undefined;
+        if (!rPath) continue;
+        const inspected = config.inspect(setting) || {};
+        return {
+            rPath,
+            setting,
+            version: extractVersionFromPath(rPath),
+            isWorkspace: Boolean(inspected.workspaceValue || inspected.workspaceFolderValue)
+        };
+    }
+    return { rPath: undefined, setting: undefined, version: null, isWorkspace: false };
+}
+
+/**
+ * Check whether the configured R is this installed version
+ */
+function isConfigured(entry, configured) {
+    return settingMatchesEntry(configured.rPath, entry, process.platform);
 }
 
 /**
@@ -154,66 +179,68 @@ async function getInstalledVersions() {
  */
 function describeInstalled(entry, configured, renvVersion) {
     const tags = [];
-    if (configured.rPath && entry.binary === configured.rPath) tags.push('this workspace');
+    if (isConfigured(entry, configured)) tags.push('this workspace');
     if (entry.isDefault) tags.push('system default');
     if (renvVersion && entry.version === renvVersion) tags.push('renv.lock');
     return tags.length > 0 ? `(${tags.join(', ')})` : '';
 }
 
 /**
- * Point the workspace R settings at an R executable, rolling back on failure
- * @param {{version: string, binary: string}} entry
+ * Point the workspace R settings at an installed R, rolling back on failure.
+ *
+ * Writes `r.executablePath` (language server, help) and `--r-binary` in
+ * `r.consoleArgs` (radian). Both use rig's version link (e.g. "R-4.5.1")
+ * when it is on PATH, so the settings file holds no install path. The
+ * deprecated `r.rpath.<platform>` and `r.rterm.option` are removed from the
+ * workspace settings.
+ * @param {{name: string, version: string, binary: string}} entry
  * @returns {Promise<boolean>}
  */
 async function applyRVersion(entry) {
-    // Backup current settings for rollback
     const config = vscode.workspace.getConfiguration('r');
-    const rPathSetting = getRPathSettingName();
-    const previousRPath = config.get(rPathSetting);
-    const previousRtermOptions = config.get('rterm.option') || [];
-    const rPath = entry.binary;
+    const legacyRPath = legacyRPathSetting(process.platform);
+    const touched = [EXECUTABLE_SETTING, CONSOLE_ARGS_SETTING, legacyRPath, LEGACY_CONSOLE_ARGS_SETTING];
+
+    // Backup the workspace values (not the merged ones) for rollback
+    const previous = new Map(touched.map(key => [key, (config.inspect(key) || {}).workspaceValue]));
+
+    const rPath = executableSettingFor(entry, rig.findOnPath);
+    // Keep the console arguments already in effect: r.consoleArgs if anyone
+    // set it, else the deprecated r.rterm.option that older versions wrote,
+    // else vscode-R's default.
+    const isSet = key => {
+        const inspected = config.inspect(key) || {};
+        return [inspected.globalValue, inspected.workspaceValue, inspected.workspaceFolderValue]
+            .some(value => value !== undefined);
+    };
+    const argsSource = !isSet(CONSOLE_ARGS_SETTING) && isSet(LEGACY_CONSOLE_ARGS_SETTING)
+        ? LEGACY_CONSOLE_ARGS_SETTING
+        : CONSOLE_ARGS_SETTING;
+    const consoleArgs = withRBinary(config.get(argsSource), rPath);
 
     try {
-        // Update platform-specific r.rpath setting
-        await config.update(rPathSetting, rPath, vscode.ConfigurationTarget.Workspace);
-
-        // Update r.rterm.option to update the --r-binary parameter
-        const currentOptions = config.get('rterm.option') || [];
-        const newOptions = Array.isArray(currentOptions) ? [...currentOptions] : [];
-
-        const binaryIndex = newOptions.findIndex(opt =>
-            typeof opt === 'string' && opt.startsWith('--r-binary=')
-        );
-
-        if (binaryIndex >= 0) {
-            newOptions[binaryIndex] = `--r-binary=${rPath}`;
-        } else {
-            newOptions.push(`--r-binary=${rPath}`);
+        const target = vscode.ConfigurationTarget.Workspace;
+        await config.update(EXECUTABLE_SETTING, rPath, target);
+        await config.update(CONSOLE_ARGS_SETTING, consoleArgs, target);
+        for (const key of [legacyRPath, LEGACY_CONSOLE_ARGS_SETTING]) {
+            if (previous.get(key) !== undefined) await config.update(key, undefined, target);
         }
 
-        await config.update('rterm.option', newOptions, vscode.ConfigurationTarget.Workspace);
-
-        // Verify settings were updated
-        const updatedConfig = vscode.workspace.getConfiguration('r');
-        const verifyPath = updatedConfig.get(rPathSetting);
+        const verifyPath = vscode.workspace.getConfiguration('r').get(EXECUTABLE_SETTING);
         if (verifyPath !== rPath) {
             throw new Error('Settings update verification failed');
         }
 
         vscode.window.showInformationMessage(
-            `R version switched to ${entry.version} for this workspace. Restart R terminal for changes to take effect.`
+            `R version switched to ${entry.version} for this workspace. Restart the R terminal for the change to take effect.`
         );
         return true;
 
     } catch (updateError) {
-        // Rollback on failure
         vscode.window.showErrorMessage(`Failed to update settings: ${updateError.message}. Rolling back...`);
         try {
-            if (previousRPath !== undefined) {
-                await config.update(rPathSetting, previousRPath, vscode.ConfigurationTarget.Workspace);
-            }
-            if (previousRtermOptions.length > 0) {
-                await config.update('rterm.option', previousRtermOptions, vscode.ConfigurationTarget.Workspace);
+            for (const [key, value] of previous) {
+                await config.update(key, value, vscode.ConfigurationTarget.Workspace);
             }
             vscode.window.showInformationMessage('Settings rolled back to previous values.');
         } catch (rollbackError) {
@@ -374,7 +401,7 @@ async function switchVersion() {
 
     const configured = getConfiguredR();
     const items = versions.map(entry => ({
-        label: entry.binary === configured.rPath ? `$(check) R ${entry.version}` : `R ${entry.version}`,
+        label: isConfigured(entry, configured) ? `$(check) R ${entry.version}` : `R ${entry.version}`,
         description: describeInstalled(entry, configured, renv && renv.version),
         detail: entry.binary,
         entry
@@ -406,14 +433,17 @@ async function showCurrentVersion() {
         return;
     }
 
-    // Verify R executable exists
-    const exists = await checkRExists(configured.rPath);
-    const status = exists ? '\u2713 Valid' : '\u2717 Invalid path';
+    // Verify R executable exists (a bare rig link name is looked up on PATH)
+    const resolved = await resolveConfiguredR(configured.rPath);
+    const status = resolved ? '\u2713 Valid' : '\u2717 Invalid path';
     const renv = await readRenvVersion(folder.uri.fsPath);
     const renvNote = renv ? ` renv.lock: R ${renv.version}.` : '';
+    const where = resolved && resolved !== configured.rPath
+        ? `${configured.rPath} (${resolved})`
+        : configured.rPath;
 
     vscode.window.showInformationMessage(
-        `Current R version: ${configured.version || 'unknown'} ${status}.${renvNote}\nPath: ${configured.rPath}`
+        `Current R version: ${configured.version || 'unknown'} ${status}.${renvNote}\nPath: ${where}`
     );
 }
 
@@ -523,7 +553,7 @@ async function removeVersion() {
     const entries = selected.map(item => item.entry);
     const names = entries.map(entry => entry.version).join(', ');
     const warnings = ['rig keeps your package libraries.'];
-    if (entries.some(entry => entry.binary === configured.rPath)) {
+    if (entries.some(entry => isConfigured(entry, configured))) {
         warnings.push('This workspace is set to use one of these versions.');
     }
     if (entries.some(entry => entry.isDefault)) {
@@ -545,7 +575,7 @@ async function removeVersion() {
     }
 
     refreshStatusBar();
-    if (entries.some(entry => entry.binary === configured.rPath)) {
+    if (entries.some(entry => isConfigured(entry, configured))) {
         const choice = await vscode.window.showWarningMessage(
             `Removed R ${names}. This workspace still points to the removed version.`,
             'Switch Version'
@@ -660,7 +690,8 @@ async function useRenvVersion(quiet = false) {
     const configured = getConfiguredR();
 
     if (exact) {
-        if (configured.rPath === match.binary) {
+        // A workspace set up through the deprecated settings is rewritten.
+        if (isConfigured(match, configured) && configured.setting === EXECUTABLE_SETTING) {
             if (!quiet) vscode.window.showInformationMessage(`This workspace already uses R ${renv.version}, as renv.lock requires.`);
             return;
         }
