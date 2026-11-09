@@ -5,6 +5,19 @@ All notable changes to the "R Version Switcher" extension will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-11-09
+
+### Changed
+- Writes `r.executablePath` and `r.consoleArgs` (vscode-R 3.x) instead of the deprecated `r.rpath.<platform>` and `r.rterm.option`. Switching a workspace removes the deprecated settings; `R: Use R Version from renv.lock` also rewrites a workspace that already uses the right version through them.
+- If R Debugger is installed, `r.rpath.<platform>` is kept and set to the same value as `r.executablePath`, since R Debugger reads only that setting and would otherwise start the first R on `PATH`.
+- Uses rig's version link on `PATH` (`R-4.5.1.exe` on Windows, `R-4.5.1` elsewhere) instead of the full path to `R.exe` when the link exists, so `.vscode/settings.json` holds no install path and can be committed.
+- Keeps the console arguments already in effect (your own, the ones in the deprecated `r.rterm.option`, or vscode-R's default) and only sets `--r-binary`.
+- Rollback restores the workspace values only, instead of copying user settings into the workspace.
+- Repository links and author in `package.json`, `LICENSE`, README, CONTRIBUTING and CHANGELOG.
+
+### Fixed
+- `R: Show Current Version` resolves a version link on `PATH` instead of reporting it as an invalid path.
+
 ## [1.1.0] - 2026-10-25
 
 ### Added
@@ -111,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 To update to the latest version:
 
 1. **From Marketplace:** VS Code will notify you of updates automatically
-2. **Manual:** Download the latest `.vsix` from [Releases](https://github.com/yourusername/r-version-switcher/releases)
+2. **Manual:** Download the latest `.vsix` from [Releases](https://github.com/OndrejMottl/r-version-switcher/releases)
 
 ---
 
@@ -139,6 +152,6 @@ To update to the latest version:
 ## Support
 
 Found a bug or have a feature request?
-- 🐛 [Report issues](https://github.com/yourusername/r-version-switcher/issues)
-- 💡 [Request features](https://github.com/yourusername/r-version-switcher/issues/new)
-- 📖 [Read docs](https://github.com/yourusername/r-version-switcher#readme)
+- 🐛 [Report issues](https://github.com/OndrejMottl/r-version-switcher/issues)
+- 💡 [Request features](https://github.com/OndrejMottl/r-version-switcher/issues/new)
+- 📖 [Read docs](https://github.com/OndrejMottl/r-version-switcher#readme)

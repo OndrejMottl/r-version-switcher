@@ -2,10 +2,10 @@
   "name": "r-version-switcher",
   "displayName": "R Version Switcher",
   "description": "⚠️ Purely vibe-coded (AI-written), use at your own risk. Switch, install and remove R versions managed by rig (R Installation Manager)",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "OndrejMottl",
   "author": {
-    "name": "Your Name"
+    "name": "Ondřej Mottl"
   },
   "license": "MIT",
   "icon": "media/icon.png",
@@ -107,12 +107,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/r-version-switcher"
+    "url": "https://github.com/OndrejMottl/r-version-switcher"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/r-version-switcher/issues"
+    "url": "https://github.com/OndrejMottl/r-version-switcher/issues"
   },
-  "homepage": "https://github.com/yourusername/r-version-switcher#readme",
+  "homepage": "https://github.com/OndrejMottl/r-version-switcher#readme",
   "extensionDependencies": [
     "REditorSupport.r"
   ],

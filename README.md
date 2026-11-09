@@ -4,7 +4,7 @@
 
 A robust VS Code extension to easily switch between R versions managed by [rig](https://github.com/r-lib/rig) (R Installation Manager). Works seamlessly across Windows, macOS, and Linux.
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/yourusername/r-version-switcher)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/OndrejMottl/r-version-switcher)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Features
@@ -80,7 +80,7 @@ The extension uses the R executable paths that `rig list --json` reports, so bot
 4. Click Install
 
 ### Manual Installation
-1. Download the `.vsix` file from [Releases](https://github.com/yourusername/r-version-switcher/releases)
+1. Download the `.vsix` file from [Releases](https://github.com/OndrejMottl/r-version-switcher/releases)
 2. Open VS Code
 3. Go to Extensions (Ctrl+Shift+X)
 4. Click the "..." menu → "Install from VSIX..."
@@ -118,8 +118,9 @@ The extension:
 2. **Executes `rig list`** - Retrieves all installed R versions
 3. **Validates paths** - Verifies each R executable exists
 4. **Updates settings** - Modifies workspace `.vscode/settings.json`:
-   - `r.rpath.windows` / `r.rpath.mac` / `r.rpath.linux` - Platform-specific R path
-   - `r.rterm.option` - Adds/updates `--r-binary` parameter
+   - `r.executablePath` - The R that vscode-R uses (language server, help, workspace viewer)
+   - `r.consoleArgs` - Adds/updates the `--r-binary` argument for the R console (radian); other arguments are kept
+   - Removes the deprecated `r.rterm.option` and `r.rpath.*`, which earlier versions of this extension wrote. If [R Debugger](https://marketplace.visualstudio.com/items?itemName=RDebugger.r-debugger) is installed, `r.rpath.<platform>` is kept and set to the same value as `r.executablePath`, because R Debugger reads only that setting
 5. **Verifies changes** - Confirms settings were updated correctly
 6. **Rolls back on failure** - Restores previous settings if update fails
 
@@ -131,14 +132,22 @@ This extension modifies the following workspace settings:
 
 ```json
 {
-  "r.rpath.windows": "C:\\Program Files\\R\\R-4.5.1\\bin\\R.exe",
-  "r.rterm.option": [
-    "--r-binary=C:\\Program Files\\R\\R-4.5.1\\bin\\R.exe"
+  "r.executablePath": "R-4.5.1.exe",
+  "r.consoleArgs": [
+    "--no-save",
+    "--no-restore",
+    "--r-binary=R-4.5.1.exe"
   ]
 }
 ```
 
-Settings are workspace-scoped and won't sync across machines, allowing different R versions per environment.
+`R-4.5.1.exe` is the version link that rig creates on `PATH` (`rig system make-links`; on macOS and Linux it is `R-4.5.1`). With it, the settings file contains no install path, so it can be committed and works on any machine that has that R version through rig. If the link is missing, the extension writes the full path to `R.exe` instead.
+
+With R Debugger installed, `r.rpath.windows` (or `r.rpath.mac`, `r.rpath.linux`) is also written, with the same value as `r.executablePath`. vscode-R 3.3 asks for the same, until R Debugger reads `r.executablePath`.
+
+On Windows the link name must include `.exe`: vscode-R only adds `.exe` to names without an extension, and `R-4.5.1` looks like it has one.
+
+The settings are workspace-scoped, so each project can use its own R version.
 
 ## Troubleshooting
 
@@ -196,7 +205,7 @@ Install the official [R Extension](https://marketplace.visualstudio.com/items?it
 If you want to configure R settings without installing the R extension (not recommended), you can choose "Continue Anyway" when prompted. However, these settings are designed to work with the R extension, so functionality will be limited.
 
 **Why is this required?**
-The R Version Switcher configures settings specifically for the R extension (`r.rpath.*` and `r.rterm.option`). Without the R extension, these settings have no effect.
+The R Version Switcher configures settings specifically for the R extension (`r.executablePath` and `r.consoleArgs`). Without the R extension, these settings have no effect.
 
 ### "Settings update verification failed"
 
@@ -229,7 +238,7 @@ If you see "✗ Invalid path" in Show Current Version:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/r-version-switcher.git
+git clone https://github.com/OndrejMottl/r-version-switcher.git
 cd r-version-switcher
 
 # Install dependencies
@@ -309,10 +318,10 @@ See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Support
 
-- 🐛 [Report bugs](https://github.com/yourusername/r-version-switcher/issues)
-- 💡 [Request features](https://github.com/yourusername/r-version-switcher/issues)
-- 📖 [Read documentation](https://github.com/yourusername/r-version-switcher#readme)
-- ⭐ [Star on GitHub](https://github.com/yourusername/r-version-switcher)
+- 🐛 [Report bugs](https://github.com/OndrejMottl/r-version-switcher/issues)
+- 💡 [Request features](https://github.com/OndrejMottl/r-version-switcher/issues)
+- 📖 [Read documentation](https://github.com/OndrejMottl/r-version-switcher#readme)
+- ⭐ [Star on GitHub](https://github.com/OndrejMottl/r-version-switcher)
 
 ---
 

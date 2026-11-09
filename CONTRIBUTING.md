@@ -11,7 +11,7 @@ Be respectful, inclusive, and professional in all interactions.
 ### Reporting Bugs
 
 Before creating a bug report:
-1. Check [existing issues](https://github.com/yourusername/r-version-switcher/issues)
+1. Check [existing issues](https://github.com/OndrejMottl/r-version-switcher/issues)
 2. Verify you're using the latest version
 3. Test with minimal configuration
 
@@ -38,7 +38,7 @@ Feature requests should include:
 
 #### Before Starting
 
-1. Check [existing issues](https://github.com/yourusername/r-version-switcher/issues) for related work
+1. Check [existing issues](https://github.com/OndrejMottl/r-version-switcher/issues) for related work
 2. For major changes, open an issue first to discuss
 3. Fork the repository
 
@@ -268,6 +268,6 @@ When adding features, ensure cross-platform compatibility:
 
 ## Questions?
 
-Open an [issue](https://github.com/yourusername/r-version-switcher/issues) or discussion for questions.
+Open an [issue](https://github.com/OndrejMottl/r-version-switcher/issues) or discussion for questions.
 
 Thank you for contributing! 🎉
