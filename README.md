@@ -120,7 +120,7 @@ The extension:
 4. **Updates settings** - Modifies workspace `.vscode/settings.json`:
    - `r.executablePath` - The R that vscode-R uses (language server, help, workspace viewer)
    - `r.consoleArgs` - Adds/updates the `--r-binary` argument for the R console (radian); other arguments are kept
-   - Removes the deprecated `r.rpath.*` and `r.rterm.option`, which earlier versions of this extension wrote
+   - Removes the deprecated `r.rterm.option` and `r.rpath.*`, which earlier versions of this extension wrote. If [R Debugger](https://marketplace.visualstudio.com/items?itemName=RDebugger.r-debugger) is installed, `r.rpath.<platform>` is kept and set to the same value as `r.executablePath`, because R Debugger reads only that setting
 5. **Verifies changes** - Confirms settings were updated correctly
 6. **Rolls back on failure** - Restores previous settings if update fails
 
@@ -142,6 +142,8 @@ This extension modifies the following workspace settings:
 ```
 
 `R-4.5.1.exe` is the version link that rig creates on `PATH` (`rig system make-links`; on macOS and Linux it is `R-4.5.1`). With it, the settings file contains no install path, so it can be committed and works on any machine that has that R version through rig. If the link is missing, the extension writes the full path to `R.exe` instead.
+
+With R Debugger installed, `r.rpath.windows` (or `r.rpath.mac`, `r.rpath.linux`) is also written, with the same value as `r.executablePath`. vscode-R 3.3 asks for the same, until R Debugger reads `r.executablePath`.
 
 On Windows the link name must include `.exe`: vscode-R only adds `.exe` to names without an extension, and `R-4.5.1` looks like it has one.
 

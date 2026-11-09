@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Writes `r.executablePath` and `r.consoleArgs` (vscode-R 3.x) instead of the deprecated `r.rpath.<platform>` and `r.rterm.option`. Switching a workspace removes the deprecated settings; `R: Use R Version from renv.lock` also rewrites a workspace that already uses the right version through them.
+- If R Debugger is installed, `r.rpath.<platform>` is kept and set to the same value as `r.executablePath`, since R Debugger reads only that setting and would otherwise start the first R on `PATH`.
 - Uses rig's version link on `PATH` (`R-4.5.1.exe` on Windows, `R-4.5.1` elsewhere) instead of the full path to `R.exe` when the link exists, so `.vscode/settings.json` holds no install path and can be committed.
 - Keeps the console arguments already in effect (your own, the ones in the deprecated `r.rterm.option`, or vscode-R's default) and only sets `--r-binary`.
 - Rollback restores the workspace values only, instead of copying user settings into the workspace.

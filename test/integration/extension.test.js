@@ -35,11 +35,12 @@ let rigModule;
 
 suite('Extension', () => {
     let internals;
+    let activated;
 
     suiteSetup(async () => {
         const extension = vscode.extensions.getExtension(EXTENSION_ID);
         assert.ok(extension, `${EXTENSION_ID} is not loaded`);
-        await extension.activate();
+        activated = await extension.activate();
         // Same module instance the extension host loaded.
         internals = require(path.join(extension.extensionPath, 'extension.js'));
         rigModule = require(path.join(extension.extensionPath, 'lib', 'rig.js'));
@@ -100,5 +101,61 @@ suite('Extension', () => {
         assert.deepStrictEqual(updated.get('consoleArgs'), ['--quiet', `--r-binary=${expected}`]);
         assert.strictEqual(updated.inspect(legacyRPathSetting()).workspaceValue, undefined);
         assert.strictEqual(updated.inspect('rterm.option').workspaceValue, undefined);
+    });
+
+    test('quick pick, Show Current Version and status bar understand a rig link name', async () => {
+        const installed = await internals.getInstalledVersions();
+        assert.ok(installed.length > 1, 'needs at least two R versions installed via rig');
+        const target = installed[installed.length - 1];
+        const other = installed[0];
+        const writeLock = version => fs.writeFileSync(
+            path.join(getWorkspacePath(), 'renv.lock'),
+            JSON.stringify({ R: { Version: version }, Packages: {} })
+        );
+
+        writeLock(target.version);
+        const expected = expectedExecutable(target);
+        await vscode.workspace.getConfiguration('r')
+            .update('executablePath', expected, vscode.ConfigurationTarget.Workspace);
+
+        // Capture what the user would see instead of waiting for input.
+        const original = {
+            showQuickPick: vscode.window.showQuickPick,
+            showInformationMessage: vscode.window.showInformationMessage
+        };
+        let pickItems;
+        const messages = [];
+        vscode.window.showQuickPick = async items => { pickItems = await items; return undefined; };
+        vscode.window.showInformationMessage = async message => { messages.push(message); return undefined; };
+        try {
+            await vscode.commands.executeCommand('r.switchVersion');
+            await vscode.commands.executeCommand('r.showCurrentVersion');
+        } finally {
+            Object.assign(vscode.window, original);
+        }
+
+        const ticked = pickItems.filter(item => item.label.startsWith('$(check)'));
+        assert.deepStrictEqual(ticked.map(item => item.entry.name), [target.name]);
+        assert.match(ticked[0].description, /this workspace/);
+        assert.match(ticked[0].description, /renv\.lock/);
+
+        const current = messages.find(message => message.startsWith('Current R version'));
+        assert.ok(current, `no Show Current Version message in ${JSON.stringify(messages)}`);
+        assert.ok(current.includes(`Current R version: ${target.version} ✓ Valid.`), current);
+        if (expected !== target.binary) {
+            // A link name is shown with the file it resolves to.
+            assert.ok(current.includes(`Path: ${expected} (`), current);
+        }
+
+        const statusBar = activated.getStatusBarItem();
+        await activated.refreshStatusBar();
+        assert.strictEqual(statusBar.text, `$(versions) R ${target.version}`);
+        assert.strictEqual(statusBar.backgroundColor, undefined);
+
+        writeLock(other.version);
+        await activated.refreshStatusBar();
+        assert.strictEqual(statusBar.text, `$(versions) R ${target.version} $(warning) renv ${other.version}`);
+        assert.ok(statusBar.backgroundColor instanceof vscode.ThemeColor);
+        assert.strictEqual(statusBar.backgroundColor.id, 'statusBarItem.warningBackground');
     });
 });

@@ -6,7 +6,8 @@ const {
     findExecutable,
     executableSettingFor,
     settingMatchesEntry,
-    withRBinary
+    withRBinary,
+    workspaceRSettings
 } = require('../../lib/settings');
 const { extractVersionFromPath } = require('../../lib/versions');
 
@@ -137,5 +138,25 @@ suite('withRBinary', () => {
         const args = ['--quiet'];
         withRBinary(args, 'R-4.5.1');
         assert.deepStrictEqual(args, ['--quiet']);
+    });
+});
+
+suite('workspaceRSettings', () => {
+    const args = ['--no-save', '--r-binary=R-4.5.1.exe'];
+
+    test('writes the new settings and removes the deprecated ones', () => {
+        assert.deepStrictEqual(workspaceRSettings('R-4.5.1.exe', args, { platform: 'win32' }), [
+            ['executablePath', 'R-4.5.1.exe'],
+            ['consoleArgs', args],
+            ['rpath.windows', undefined],
+            ['rterm.option', undefined]
+        ]);
+    });
+
+    test('keeps r.rpath.<platform> in sync with r.executablePath for R Debugger', () => {
+        const updates = new Map(workspaceRSettings('R-4.5.1', args, { syncLegacyRPath: true, platform: 'linux' }));
+        assert.strictEqual(updates.get('rpath.linux'), 'R-4.5.1');
+        assert.strictEqual(updates.get('executablePath'), 'R-4.5.1');
+        assert.ok(updates.has('rterm.option') && updates.get('rterm.option') === undefined);
     });
 });

@@ -15,7 +15,8 @@ const {
     legacyRPathSetting,
     executableSettingFor,
     settingMatchesEntry,
-    withRBinary
+    withRBinary,
+    workspaceRSettings
 } = require('./lib/settings');
 
 // Platform detection
@@ -25,6 +26,7 @@ const IS_LINUX = process.platform === 'linux';
 
 const SETTINGS_SECTION = 'rVersionSwitcher';
 const TASK_TYPE = 'rig';
+const R_DEBUGGER_ID = 'RDebugger.r-debugger';
 
 let statusBarItem;
 
@@ -98,6 +100,15 @@ function getConfiguredR() {
         };
     }
     return { rPath: undefined, setting: undefined, version: null, isWorkspace: false };
+}
+
+/**
+ * R Debugger reads only the deprecated `r.rpath.<platform>`, so while it is
+ * installed that setting is kept in sync with `r.executablePath`
+ * @returns {boolean}
+ */
+function needsLegacyRPath() {
+    return Boolean(vscode.extensions.getExtension(R_DEBUGGER_ID));
 }
 
 /**
@@ -191,8 +202,9 @@ function describeInstalled(entry, configured, renvVersion) {
  * Writes `r.executablePath` (language server, help) and `--r-binary` in
  * `r.consoleArgs` (radian). Both use rig's version link (e.g. "R-4.5.1")
  * when it is on PATH, so the settings file holds no install path. The
- * deprecated `r.rpath.<platform>` and `r.rterm.option` are removed from the
- * workspace settings.
+ * deprecated `r.rterm.option` is removed from the workspace settings, and so
+ * is `r.rpath.<platform>` unless R Debugger needs it (then it gets the same
+ * value as `r.executablePath`).
  * @param {{name: string, version: string, binary: string}} entry
  * @returns {Promise<boolean>}
  */
@@ -218,12 +230,16 @@ async function applyRVersion(entry) {
         : CONSOLE_ARGS_SETTING;
     const consoleArgs = withRBinary(config.get(argsSource), rPath);
 
+    const updates = workspaceRSettings(rPath, consoleArgs, {
+        syncLegacyRPath: needsLegacyRPath(),
+        platform: process.platform
+    });
+
     try {
         const target = vscode.ConfigurationTarget.Workspace;
-        await config.update(EXECUTABLE_SETTING, rPath, target);
-        await config.update(CONSOLE_ARGS_SETTING, consoleArgs, target);
-        for (const key of [legacyRPath, LEGACY_CONSOLE_ARGS_SETTING]) {
-            if (previous.get(key) !== undefined) await config.update(key, undefined, target);
+        for (const [key, value] of updates) {
+            if (value === undefined && previous.get(key) === undefined) continue;
+            await config.update(key, value, target);
         }
 
         const verifyPath = vscode.workspace.getConfiguration('r').get(EXECUTABLE_SETTING);
@@ -690,8 +706,13 @@ async function useRenvVersion(quiet = false) {
     const configured = getConfiguredR();
 
     if (exact) {
-        // A workspace set up through the deprecated settings is rewritten.
-        if (isConfigured(match, configured) && configured.setting === EXECUTABLE_SETTING) {
+        // A workspace set up through the deprecated settings is rewritten,
+        // and so is one whose r.rpath.<platform> R Debugger still needs.
+        const legacyRPath = vscode.workspace.getConfiguration('r')
+            .inspect(legacyRPathSetting(process.platform)) || {};
+        const legacyInSync = !needsLegacyRPath() ||
+            settingMatchesEntry(legacyRPath.workspaceValue, match, process.platform);
+        if (isConfigured(match, configured) && configured.setting === EXECUTABLE_SETTING && legacyInSync) {
             if (!quiet) vscode.window.showInformationMessage(`This workspace already uses R ${renv.version}, as renv.lock requires.`);
             return;
         }
@@ -854,6 +875,13 @@ function activate(context) {
 
     refreshStatusBar();
     checkRenvMismatch(context).catch(error => console.error('renv.lock check failed:', error));
+
+    // Returned as the extension's exports, so the integration tests reach
+    // this activated instance (require() may load a second copy).
+    return {
+        refreshStatusBar,
+        getStatusBarItem: () => statusBarItem
+    };
 }
 
 function deactivate() {}
